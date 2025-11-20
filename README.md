@@ -1,1 +1,1 @@
-# G6_assignment_1
+# group_6_assignment_1
