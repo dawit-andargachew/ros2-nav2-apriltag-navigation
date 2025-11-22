@@ -1,10 +1,10 @@
-name: Colcon Build
+name: Colcon Build (Jazzy)
 
 on:
   push:
-    branches: ["main"]        # Only run on main
+    branches: ["main"]       # Only run on main
   pull_request:
-    branches: ["main"]        # Only PRs targeting main
+    branches: ["main"]       # Only PRs targeting main
 
 jobs:
   colcon_build:
@@ -14,17 +14,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup ROS 2
+      # Install ROS 2 Jazzy
+      - name: Setup ROS 2 Jazzy
         uses: ros-tooling/setup-ros@v0.7
         with:
-          required-ros-distributions: humble   # Change to your ROS version
+          required-ros-distributions: jazzy
 
-      - name: Install Dependencies
+      # Install system dependencies
+      - name: Install ROS Jazzy dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install ros-jazzy-ament-cmake \
+            ros-jazzy-ur ros-jazzy-ur-simulation-gz ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-nav2-minimal-tb* ros-jazzy-turtlebot3-gazebo ros-jazzy-rviz-visual-tools \
+            ros-jazzy-gz-ros2-control ros-jazzy-ros-gz-sim ros-jazzy-joint-state-broadcaster \
+            ros-jazzy-joint-trajectory-controller ros-jazzy-pcl-ros ros-jazzy-realsense2-description \
+            ros-jazzy-robotiq-controllers ros-jazzy-robotiq-description ros-jazzy-ros-gz \
+            ros-jazzy-apriltag ros-jazzy-apriltag-ros ros-jazzy-apriltag-detector \
+            ros-jazzy-image-proc ros-jazzy-depth-image-proc ros-jazzy-nav2-route
+
+      # rosdep for workspace
+      - name: rosdep install
         run: |
           sudo rosdep init || true
           rosdep update
-          rosdep install --from-paths src --ignore-src -r -y
+          rosdep install --from-paths ws_6_assignments/src --ignore-src -r -y
 
-      - name: Colcon Build
+      # Build the workspace
+      - name: Colcon build
         run: |
+          cd ws_6_assignments
           colcon build --event-handlers console_direct+
