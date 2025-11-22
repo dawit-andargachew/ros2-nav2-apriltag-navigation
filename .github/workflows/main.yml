@@ -1,46 +1,52 @@
-name: Colcon Build (ROS 2 Jazzy)
+name: group_6_assignment_1
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   pull_request:
     branches: ["main"]
+    types: [opened]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ros_distro: [rolling]  # Only using ROS 2 Rolling Ridley (Jazzy)
+        ubuntu_version: [24.04]  # Targeting Ubuntu 24.04
+    runs-on: ubuntu-${{ matrix.ubuntu_version }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Install ROS 2 Jazzy (base)
-      - name: Install ROS 2 Jazzy
+      - name: Install ROS 2 Rolling (Jazzy) packages
         run: |
-          sudo apt-get update && sudo apt-get install -y locales
-          sudo locale-gen en_US en_US.UTF-8
-          sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-          export LANG=en_US.UTF-8
-          
-          sudo apt-get install -y curl gnupg2 lsb-release
+          sudo apt update
+          sudo apt install -y software-properties-common
+          sudo add-apt-repository universe
+          sudo apt update && sudo apt install -y curl
           sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-          
-          echo "deb [signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | \
-            sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+          sudo apt update
+          sudo apt install -y ros-rolling-ros-base python3-colcon-common-extensions
+          sudo apt install -y lcov
 
-          sudo apt-get update
-          sudo apt-get install -y ros-jazzy-ros-base python3-rosdep
-
-          sudo rosdep init || true
-          rosdep update
-
-      # Install ONLY what your package needs (automatically via rosdep)
-      - name: Install package dependencies
+      - name: Setup Workspace
         run: |
-          rosdep install --from-paths . --ignore-src -r -y
+          source /opt/ros/rolling/setup.bash
+          mkdir -p ros_ws/src/group_6_assignment_1
+          cd ros_ws
+          colcon build
+          source install/setup.bash
 
-      # Build your single ROS 2 package
-      - name: Build package
+      - uses: actions/checkout@v3
+        with:
+          path: ros_ws/src/group_6_assignment_1
+
+      - name: Configure CMake flags and build executables
         run: |
-          source /opt/ros/jazzy/setup.bash
-          colcon build --event-handlers console_direct+
+          source /opt/ros/rolling/setup.bash
+          sudo apt install python3-rosdep
+          sudo rosdep init
+          rosdep update --include-eol-distros
+          cd ros_ws
+          rosdep install --from-paths src -y --ignore-src
+          colcon build --packages-select group_6_assignment_1
