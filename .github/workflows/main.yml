@@ -12,12 +12,12 @@ jobs:
   build:
     strategy:
       matrix:
-        ros_distro: [jalisco]  #  ROS 2 Jalisco
+        ros_distro: [jazzy]  # Updated to ROS 2 Jazzy
         ubuntu_version: [24.04]  # Targeting Ubuntu 24.04
     runs-on: ubuntu-${{ matrix.ubuntu_version }}
 
     steps:
-      - name: Install ROS 2 Jalisco packages
+      - name: Install ROS 2 Jazzy packages
         run: |
           sudo apt update
           sudo apt install -y software-properties-common
@@ -26,12 +26,12 @@ jobs:
           sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
           sudo apt update
-          sudo apt install -y ros-jalisco-ros-base python3-colcon-common-extensions
+          sudo apt install -y ros-jazzy-ros-base python3-colcon-common-extensions
           sudo apt install -y lcov
 
       - name: Setup Workspace
         run: |
-          source /opt/ros/jalisco/setup.bash
+          source /opt/ros/jazzy/setup.bash  # Changed to Jazzy
           mkdir -p ros_ws/src/group_6_assignment_1
           cd ros_ws
           colcon build
@@ -43,7 +43,7 @@ jobs:
 
       - name: Configure CMake flags and build executables
         run: |
-          source /opt/ros/jalisco/setup.bash
+          source /opt/ros/jazzy/setup.bash  # Changed to Jazzy
           sudo apt install python3-rosdep
           sudo rosdep init
           rosdep update --include-eol-distros
