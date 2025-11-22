@@ -1,47 +1,46 @@
-name: Colcon Build (Jazzy)
+name: Colcon Build (ROS 2 Jazzy)
 
 on:
   push:
-    branches: ["main"]       # Only run on main
+    branches: ["main"]
   pull_request:
-    branches: ["main"]       # Only PRs targeting main
+    branches: ["main"]
 
 jobs:
-  colcon_build:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install ROS 2 Jazzy
-      - name: Setup ROS 2 Jazzy
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: jazzy
-
-      # Install system dependencies
-      - name: Install ROS Jazzy dependencies
+      # Install ROS 2 Jazzy (base)
+      - name: Install ROS 2 Jazzy
         run: |
+          sudo apt-get update && sudo apt-get install -y locales
+          sudo locale-gen en_US en_US.UTF-8
+          sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+          export LANG=en_US.UTF-8
+          
+          sudo apt-get install -y curl gnupg2 lsb-release
+          sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+          
+          echo "deb [signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | \
+            sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
           sudo apt-get update
-          sudo apt-get -y install ros-jazzy-ament-cmake \
-            ros-jazzy-ur ros-jazzy-ur-simulation-gz ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
-            ros-jazzy-nav2-minimal-tb* ros-jazzy-turtlebot3-gazebo ros-jazzy-rviz-visual-tools \
-            ros-jazzy-gz-ros2-control ros-jazzy-ros-gz-sim ros-jazzy-joint-state-broadcaster \
-            ros-jazzy-joint-trajectory-controller ros-jazzy-pcl-ros ros-jazzy-realsense2-description \
-            ros-jazzy-robotiq-controllers ros-jazzy-robotiq-description ros-jazzy-ros-gz \
-            ros-jazzy-apriltag ros-jazzy-apriltag-ros ros-jazzy-apriltag-detector \
-            ros-jazzy-image-proc ros-jazzy-depth-image-proc ros-jazzy-nav2-route
+          sudo apt-get install -y ros-jazzy-ros-base python3-rosdep
 
-      # rosdep for workspace
-      - name: rosdep install
-        run: |
           sudo rosdep init || true
           rosdep update
-          rosdep install --from-paths ws_6_assignments/src --ignore-src -r -y
 
-      # Build the workspace
-      - name: Colcon build
+      # Install ONLY what your package needs (automatically via rosdep)
+      - name: Install package dependencies
         run: |
-          cd ws_6_assignments
+          rosdep install --from-paths . --ignore-src -r -y
+
+      # Build your single ROS 2 package
+      - name: Build package
+        run: |
+          source /opt/ros/jazzy/setup.bash
           colcon build --event-handlers console_direct+
