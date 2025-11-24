@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(group_6_assignment_1)
+project(pipeline)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -14,6 +14,8 @@ find_package(rclcpp REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 
 if(BUILD_TESTING)
@@ -28,6 +30,16 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/DetectTables.srv"
+ DEPENDENCIES geometry_msgs
+)
+
+add_executable(table_detection_server src/TableDetectionServer.cpp)
+ament_target_dependencies(table_detection_server
+  rclcpp sensor_msgs geometry_msgs tf2_ros tf2_geometry_msgs
+)
+
 add_executable(goal_detector src/GoalDetector.cpp)
 ament_target_dependencies(
   goal_detector
@@ -38,11 +50,21 @@ ament_target_dependencies(
   apriltag_msgs
 )
 
+rosidl_target_interfaces(
+  table_detection_server ${PROJECT_NAME}
+  "rosidl_typesupport_cpp"
+)
+
 #executable
 install(TARGETS
+  table_detection_server
   goal_detector
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(DIRECTORY
+  srv
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()
