@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(pipeline)
+project(pipeline)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -17,6 +18,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -50,15 +52,37 @@ ament_target_dependencies(
   apriltag_msgs
 )
 
-rosidl_target_interfaces(
-  table_detection_server ${PROJECT_NAME}
-  "rosidl_typesupport_cpp"
+add_executable(initial_pose_pub src/InitialPosePub.cpp)
+ament_target_dependencies(
+  initial_pose_pub 
+  rclcpp 
+  geometry_msgs
+  )
+
+add_executable(navigation_orchestrator src/NavigationOrchestrator.cpp)
+ament_target_dependencies(
+  navigation_orchestrator 
+  rclcpp 
+  rclcpp_action
+  geometry_msgs
+  nav2_msgs
+  )
+
+  rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} "rosidl_typesupport_cpp"
 )
+
+target_link_libraries(table_detection_server
+  ${cpp_typesupport_target}
+)
+
 
 #executable
 install(TARGETS
   table_detection_server
   goal_detector
+  initial_pose_pub
+  navigation_orchestrator
   DESTINATION lib/${PROJECT_NAME}
 )
 
