@@ -14,6 +14,8 @@ find_package(rclcpp REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 
@@ -28,6 +30,16 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/DetectTables.srv"
+ DEPENDENCIES geometry_msgs
+)
+
+add_executable(table_detection_server src/TableDetectionServer.cpp)
+ament_target_dependencies(table_detection_server
+  rclcpp sensor_msgs geometry_msgs tf2_ros tf2_geometry_msgs
+)
 
 add_executable(goal_detector src/GoalDetector.cpp)
 ament_target_dependencies(
@@ -55,8 +67,18 @@ ament_target_dependencies(
   nav2_msgs
   )
 
+  rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} "rosidl_typesupport_cpp"
+)
+
+target_link_libraries(table_detection_server
+  ${cpp_typesupport_target}
+)
+
+
 #executable
 install(TARGETS
+  table_detection_server
   goal_detector
   initial_pose_pub
   navigation_orchestrator
@@ -64,6 +86,11 @@ install(TARGETS
 )
 
 install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+  srv
   DESTINATION share/${PROJECT_NAME}
 )
 
