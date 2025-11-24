@@ -1,5 +1,5 @@
 #include "rclcpp/rclcpp.hpp"
-#include "pipeline/srv/detect_tables.hpp"
+#include "group_6_assignment_1/srv/detect_tables.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "geometry_msgs/msg/pose_array.hpp"
 #include <cmath>
@@ -11,7 +11,7 @@ class TableDetectionServer : public rclcpp::Node {
 public:
     TableDetectionServer() : Node("table_detection_server") {
         // Create service to detect tables, which will trigger the detectTablesCallback
-        service_ = this->create_service<pipeline::srv::DetectTables>(
+        service_ = this->create_service<group_6_assignment_1::srv::DetectTables>(
             "detect_tables",
             std::bind(&TableDetectionServer::detectTablesCallback, this,
                      std::placeholders::_1, std::placeholders::_2));
@@ -25,15 +25,15 @@ public:
     }
 
 private:
-    rclcpp::Service<pipeline::srv::DetectTables>::SharedPtr service_;
+    rclcpp::Service<group_6_assignment_1::srv::DetectTables>::SharedPtr service_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
     sensor_msgs::msg::LaserScan::SharedPtr latest_scan_;
     std::mutex scan_mutex_;
 
     // Callback for the detect_tables service
     void detectTablesCallback(
-        const std::shared_ptr<pipeline::srv::DetectTables::Request> request,
-        std::shared_ptr<pipeline::srv::DetectTables::Response> response) {
+        const std::shared_ptr<group_6_assignment_1::srv::DetectTables::Request> request,
+        std::shared_ptr<group_6_assignment_1::srv::DetectTables::Response> response) {
 
         (void)request;  // Mark the unused 'request' parameter as unused to avoid the warning
 
