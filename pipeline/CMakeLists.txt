@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(group_6_assignment_1)
+project(pipeline)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -15,6 +15,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -38,9 +39,27 @@ ament_target_dependencies(
   apriltag_msgs
 )
 
+add_executable(initial_pose_pub src/InitialPosePub.cpp)
+ament_target_dependencies(
+  initial_pose_pub 
+  rclcpp 
+  geometry_msgs
+  )
+
+add_executable(navigation_orchestrator src/NavigationOrchestrator.cpp)
+ament_target_dependencies(
+  navigation_orchestrator 
+  rclcpp 
+  rclcpp_action
+  geometry_msgs
+  nav2_msgs
+  )
+
 #executable
 install(TARGETS
   goal_detector
+  initial_pose_pub
+  navigation_orchestrator
   DESTINATION lib/${PROJECT_NAME}
 )
 
