@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
 project(pipeline)
-project(pipeline)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -34,8 +33,10 @@ endif()
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/DetectTables.srv"
- DEPENDENCIES geometry_msgs
+  DEPENDENCIES geometry_msgs
 )
+
+ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(table_detection_server src/TableDetectionServer.cpp)
 ament_target_dependencies(table_detection_server
@@ -68,7 +69,12 @@ ament_target_dependencies(
   nav2_msgs
   )
 
-  rosidl_get_typesupport_target(cpp_typesupport_target
+target_link_libraries(navigation_orchestrator
+  ${cpp_typesupport_target}
+)
+
+
+rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} "rosidl_typesupport_cpp"
 )
 

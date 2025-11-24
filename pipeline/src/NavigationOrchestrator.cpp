@@ -14,10 +14,10 @@ Output:
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav2_msgs/action/navigate_to_pose.hpp>
-#include "group_6_assignment_1/pipeline/srv/table_detector.hpp"
+#include "pipeline/srv/detect_tables.hpp"
 
 using namespace std::chrono_literals;
-using TableDetector = pipeline::srv::TableDetector;
+using DetectTables = pipeline::srv::DetectTables;
 
 #define SUBSCRIBER_QUEUE_SIZE 10
 #define FEEDBACK_THROTTLE_TIMER_SEC 0.5
@@ -47,14 +47,14 @@ public:
         RCLCPP_INFO(this->get_logger(), "NavigationOrchestrator is ready and listening for goal_pose.");
 
         // Creates table detector client
-        table_detector_client_ = this->create_client<TableDetector>("table_detector");
+        table_detector_client_ = this->create_client<DetectTables>("detect_tables");
     
     }
 
 private:
     rclcpp_action::Client<NavigateToPose>::SharedPtr navigate_to_pose_client_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
-    rclcpp::Client<TableDetector>::SharedPtr table_detector_client_;
+    rclcpp::Client<DetectTables>::SharedPtr table_detector_client_;
     rclcpp::Time last_feedback_time_{0, 0, RCL_ROS_TIME};
 
     void goalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -114,7 +114,7 @@ private:
         switch (result.code) {
             case rclcpp_action::ResultCode::SUCCEEDED:
                 RCLCPP_INFO(this->get_logger(), "Navigation succeeded");
-                callTableDetectorService();
+                callTableDetectionServer();
                 break;
             case rclcpp_action::ResultCode::ABORTED:
                 RCLCPP_ERROR(this->get_logger(), "Navigation aborted");
@@ -128,26 +128,26 @@ private:
         }
     }
 
-    void callTableDetectorService()
+    void callTableDetectionServer()
     {
         if (!table_detector_client_->wait_for_service(SERVICE_WAIT_TIMER_SEC)) {
             RCLCPP_ERROR(this->get_logger(),
-                        "TableDetectorService not available!");
+                        "TableDetectionServer not available");
             return;
         }
 
-        auto request = std::make_shared<TableDetector::Request>();
+        auto request = std::make_shared<DetectTables::Request>();
 
-        RCLCPP_INFO(this->get_logger(), "Calling TableDetectorService...");
+        RCLCPP_INFO(this->get_logger(), "Calling TableDetectionServer");
 
         table_detector_client_->async_send_request(
             request,
-            [this](rclcpp::Client<TableDetector>::SharedFuture future)
+            [this](rclcpp::Client<DetectTables>::SharedFuture future)
             {
                 try {
                     auto response = future.get();
                     RCLCPP_INFO(this->get_logger(),
-                                "TableDetectorService finished successfully.");
+                                "TableDetectionServer finished successfully.");
                 }
                 catch (const std::exception & e) {
                     RCLCPP_ERROR(this->get_logger(),
