@@ -39,6 +39,13 @@ ament_target_dependencies(
   apriltag_msgs
 )
 
+add_executable(initial_pose_pub src/InitialPosePub.cpp)
+ament_target_dependencies(
+  initial_pose_pub 
+  rclcpp 
+  geometry_msgs
+  )
+
 add_executable(navigation_orchestrator src/NavigationOrchestrator.cpp)
 ament_target_dependencies(
   navigation_orchestrator 
@@ -51,6 +58,7 @@ ament_target_dependencies(
 #executable
 install(TARGETS
   goal_detector
+  initial_pose_pub
   navigation_orchestrator
   DESTINATION lib/${PROJECT_NAME}
 )
