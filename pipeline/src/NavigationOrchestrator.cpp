@@ -14,10 +14,14 @@ Output:
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav2_msgs/action/navigate_to_pose.hpp>
+#include "group_6_assignment_1/pipeline/srv/table_detector.hpp"
 
 using namespace std::chrono_literals;
+using TableDetector = pipeline::srv::TableDetector;
 
 #define SUBSCRIBER_QUEUE_SIZE 10
+#define FEEDBACK_THROTTLE_TIMER_SEC 0.5
+#define SERVICE_WAIT_TIMER_SEC 2
 
 class NavigationOrchestrator : public rclcpp::Node
 {
@@ -41,12 +45,16 @@ public:
         );
 
         RCLCPP_INFO(this->get_logger(), "NavigationOrchestrator is ready and listening for goal_pose.");
+
+        // Creates table detector client
+        table_detector_client_ = this->create_client<TableDetector>("table_detector");
     
     }
 
 private:
     rclcpp_action::Client<NavigateToPose>::SharedPtr navigate_to_pose_client_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
+    rclcpp::Client<TableDetector>::SharedPtr table_detector_client_;
     rclcpp::Time last_feedback_time_{0, 0, RCL_ROS_TIME};
 
     void goalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -91,7 +99,7 @@ private:
         auto now = this->now();
 
         // Throttle feedback to once every half seconds so it doesn't update too frequently
-        if ((now - last_feedback_time_).seconds() < 0.5) {
+        if ((now - last_feedback_time_).seconds() < FEEDBACK_THROTTLE_TIMER_SEC) {
             return;
         }
         last_feedback_time_ = now;
@@ -106,6 +114,7 @@ private:
         switch (result.code) {
             case rclcpp_action::ResultCode::SUCCEEDED:
                 RCLCPP_INFO(this->get_logger(), "Navigation succeeded");
+                callTableDetectorService();
                 break;
             case rclcpp_action::ResultCode::ABORTED:
                 RCLCPP_ERROR(this->get_logger(), "Navigation aborted");
@@ -118,6 +127,36 @@ private:
                 break;
         }
     }
+
+    void callTableDetectorService()
+    {
+        if (!table_detector_client_->wait_for_service(SERVICE_WAIT_TIMER_SEC)) {
+            RCLCPP_ERROR(this->get_logger(),
+                        "TableDetectorService not available!");
+            return;
+        }
+
+        auto request = std::make_shared<TableDetector::Request>();
+
+        RCLCPP_INFO(this->get_logger(), "Calling TableDetectorService...");
+
+        table_detector_client_->async_send_request(
+            request,
+            [this](rclcpp::Client<TableDetector>::SharedFuture future)
+            {
+                try {
+                    auto response = future.get();
+                    RCLCPP_INFO(this->get_logger(),
+                                "TableDetectorService finished successfully.");
+                }
+                catch (const std::exception & e) {
+                    RCLCPP_ERROR(this->get_logger(),
+                                "Service call failed: %s", e.what());
+                }
+            }
+        );
+    }
+
 
 };
 
