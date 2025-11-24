@@ -15,6 +15,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -42,7 +43,9 @@ add_executable(navigation_orchestrator src/NavigationOrchestrator.cpp)
 ament_target_dependencies(
   navigation_orchestrator 
   rclcpp 
+  rclcpp_action
   geometry_msgs
+  nav2_msgs
   )
 
 #executable
