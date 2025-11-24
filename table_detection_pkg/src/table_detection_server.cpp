@@ -111,7 +111,7 @@ private:
 
                 
                 // Log the (x, y, z) coordinates
-                RCLCPP_INFO(this->get_logger(), "Cylinder detected at range: %.2f, angle: %.2f, x: %.2f, y: %.2f, z: %.2f", range_median, angle, x, y, z);
+                RCLCPP_INFO(this->get_logger(), "Cylinder detected at range: %.2f, angle: %.2f, x: %.2f, y: %.2f", range_median, angle, x, y);
 
                 // Create a Pose message for visualization in RViz
                 geometry_msgs::msg::Pose cylinder_pose;

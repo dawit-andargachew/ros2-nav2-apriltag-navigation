@@ -15,7 +15,7 @@ public:
     bool sendRequest() {
         // Wait for service to be available
         RCLCPP_INFO(this->get_logger(), "Waiting for service to be available...");
-        if (!client_->wait_for_service(10s)) {
+        if (!client_->wait_for_service(20s)) {
             RCLCPP_ERROR(this->get_logger(), "Service not available after 10 seconds");
             return false;
         }
@@ -29,7 +29,7 @@ public:
         auto result_future = client_->async_send_request(request);
         
         // Wait for result with timeout
-        auto status = result_future.wait_for(10s);
+        auto status = result_future.wait_for(20s);
         if (status != std::future_status::ready) {
             RCLCPP_ERROR(this->get_logger(), "Service call timed out after 10 seconds");
             return false;
