@@ -38,9 +38,17 @@ ament_target_dependencies(
   apriltag_msgs
 )
 
+add_executable(navigation_orchestrator src/NavigationOrchestrator.cpp)
+ament_target_dependencies(
+  navigation_orchestrator 
+  rclcpp 
+  geometry_msgs
+  )
+
 #executable
 install(TARGETS
   goal_detector
+  navigation_orchestrator
   DESTINATION lib/${PROJECT_NAME}
 )
 
