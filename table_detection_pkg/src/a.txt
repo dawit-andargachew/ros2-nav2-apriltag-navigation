@@ -1,0 +1,236 @@
+here is the code I use to detect apples and tell wehre they are and how many there are. It's simple and intuiteive
+
+class TableDetectionServer : public rclcpp::Node {
+public:
+    TableDetectionServer() : Node("table_detection_server") {
+        // Create service
+        service_ = this->create_service<table_detection_pkg::srv::DetectTables>(
+            "detect_tables",
+            std::bind(&TableDetectionServer::detectTablesCallback, this,
+                     std::placeholders::_1, std::placeholders::_2));
+
+        // Create a subscriber for the /scan topic
+        scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10,
+            std::bind(&TableDetectionServer::scan_callback, this, std::placeholders::_1));
+        // Create a publisher for the /apples topic
+        apples_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/apples", 10);
+        RCLCPP_INFO(this->get_logger(), "Table Detection Server is ready.");
+    }
+private:
+    rclcpp::Service<ex4::srv::BurrowRequest>::SharedPtr service_;
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr apples_publisher_;
+    sensor_msgs::msg::LaserScan::SharedPtr latest_scan_;
+    std::mutex scan_mutex_;
+
+    void handle_burrow_request(
+        const std::shared_ptr<ex4::srv::BurrowRequest::Request> request,
+        std::shared_ptr<ex4::srv::BurrowRequest::Response> response) {
+        RCLCPP_INFO(this->get_logger(), "Received request: resources=%d, size=%d",
+                    request->n_apples, request->burrow_size);
+        int available_apples = scan_for_apples();
+        RCLCPP_INFO(this->get_logger(), "Available apples: %d", available_apples);
+        if (available_apples >= (request->burrow_size - request->n_apples)) {
+            response->enough_apples_found = true;
+        } else {
+            response->enough_apples_found = false;
+        }
+        RCLCPP_INFO(this->get_logger(), "Sending response: status=%s", response->enough_apples_found ? "true" : "false");
+    }
+
+    void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+        std::lock_guard<std::mutex> lock(scan_mutex_); // does this auto unlock when going out of scope? yes
+        latest_scan_ = msg;
+    }
+
+    int scan_for_apples() {
+        RCLCPP_INFO(this->get_logger(), "Scanning for apples...");
+       //todo: implement apple detection logic using latest_scan_
+
+       //latest_scan_ data format is sensor_msgs/msg/LaserScan
+       // angle_min
+       // angle_max
+       // angle_increment
+       // time_increment
+       // scan_time
+       // range_min
+       // range_max
+       // ranges
+       // intensities
+
+       
+        std::lock_guard<std::mutex> lock(scan_mutex_);
+       
+       //for now we just show how we can read the laser scan data
+         if (!latest_scan_) {
+            RCLCPP_WARN(this->get_logger(), "No laser scan data available.");
+            return 0;  
+        } 
+
+        // we need to find tight clusters within ranges array (because an apple will be within angle range, with similar distances)
+        // we can use a simple clustering algorithm to find these clusters, k-mean
+        // if the cluster size is within a certain threshold, we can consider it as an apple
+        // so we make datastructure, vector of vectors to hold clusters
+        
+        //ptr to ranges for ease of use
+        const std::vector<float>& ranges = latest_scan_->ranges;
+
+        //we will store the range indexes of the cluster points
+        // because we need to compute the angle later
+        std::vector<std::vector<size_t>> clusters;
+        std::vector<size_t> current_cluster;
+        const float cluster_threshold = 0.3; // 30cm ? //latest_scan_->range_max/10; // threshold to consider points in the same (distance between points in the lidar scan) not angle
+        for (size_t i = 0; i < latest_scan_->ranges.size(); i++) {
+            float range = latest_scan_->ranges[i];
+            if (range < latest_scan_->range_min || range > latest_scan_->range_max) {
+                continue; //invalid
+            }
+            if (current_cluster.empty()) {
+                current_cluster.push_back(i);
+                continue; // start new cluster
+            }
+
+            // check if the range is within the cluster threshold
+            float last_range = ranges[current_cluster.back()];
+            if (std::abs(range - last_range) < cluster_threshold) { // about same distance
+                // RCLCPP_INFO(this->get_logger(), "Adding range %.2f to current cluster, difference %.2f", range, std::abs(range - last_range));
+                current_cluster.push_back(i);
+            } else { // big change between adjacent angle readings means new cluster}
+                // RCLCPP_INFO(this->get_logger(), "Starting new cluster with range %.2f, difference %.2f", range, std::abs(range - last_range));
+                clusters.push_back(current_cluster); //does this copy the data? yes
+                current_cluster.clear();
+                current_cluster.push_back(i);
+            }
+           
+        }
+            // now we count tight clusters as apples
+            // we need to compute a width via the range and the num_points in the cluster, 
+            // num_points * angle_increment = angle_span
+            // we can use the cosine rule to compute the width
+            // width^2 = range_first^2 + range_last^2 - 2*range_first*range_last*cos(angle_span)
+            const float width_min = 0.05; // 5 cm
+            const float width_max = 0.20; // 20 cm assuming apple diameter between 5cm and 20cm
+            int apple_count = 0;
+            // apple_posses to publish later
+            geometry_msgs::msg::PoseArray apples_poses;
+
+            //debug log num clusters
+            RCLCPP_INFO(this->get_logger(), "Found %d clusters in laser scan data.", (int)clusters.size());
+            for (const auto& cluster : clusters) {
+                if (cluster.size() < 2) { // too few points to be an apple
+                    continue;
+                }
+                float range_first = ranges[cluster.front()];
+                float range_last = ranges[cluster.back()];
+                float angle_span = (cluster.size() - 1) * latest_scan_->angle_increment;
+                float width = std::sqrt(range_first * range_first + range_last * range_last -
+                                       2 * range_first * range_last * std::cos(angle_span));
+                // RCLCPP_INFO(this->get_logger(), "Cluster width: %.2f", width);
+                if (width <= width_max && width >= width_min) { 
+                    // found an apple
+                    apple_count++;
+                    // we need to added poses, relative to base_link frame
+                    // to do this we can use the range and the angle of the first point in the cluster
+                    float angle = latest_scan_->angle_min + (cluster.front() * latest_scan_->angle_increment);
+                    RCLCPP_INFO(this->get_logger(), "Apple detected at range: %.2f, angle: %.2f radians", range_first, angle);
+                    // a Pose message contains position (x, y, z) and orientation (as a quaternion)
+                    // we can compute x and y using polar to cartesian conversion, as for quaternion we can set it to 0,0,0,1 (no rotation)
+                    float range_median = ranges[cluster[cluster.size()/2]];
+                    float x = range_median * std::cos(angle);
+                    float y = range_median * std::sin(angle);
+                    RCLCPP_INFO(this->get_logger(), "Apple position relative to laser frame: x=%.2f, y=%.2f", x, y);
+
+                    // add to poses array    
+                    geometry_msgs::msg::Pose apple_pose;
+                    apple_pose.position.x = x;
+                    apple_pose.position.y = y;
+                    apple_pose.position.z = 0.0;
+                    // Convert yaw angle to quaternion (rotation around Z axis)
+                    // For a rotation around Z axis: qz = sin(angle/2), qw = cos(angle/2)
+                    apple_pose.orientation.x = 0.0;
+                    apple_pose.orientation.y = 0.0;
+                    apple_pose.orientation.z = std::sin((angle+ M_PI) / 2.0);
+                    apple_pose.orientation.w = std::cos((angle+ M_PI) / 2.0);   
+                    apples_poses.poses.push_back(apple_pose);
+                }
+
+            }
+
+        // Publish the apple poses and get ready for visualization in rviz2
+        apples_poses.header.frame_id = latest_scan_->header.frame_id;
+        apples_poses.header.stamp = this->now();
+        apples_publisher_->publish(apples_poses);
+        RCLCPP_INFO(this->get_logger(), "Published %d apple poses.", (int)apples_poses.poses.size());
+        return apple_count;
+    }
+    
+};
+
+int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+    auto server_node = std::make_shared<TableDetectionServer>();
+    rclcpp::spin(server_node);
+    rclcpp::shutdown();
+    return 0;
+}
+
+
+I like to use that appraoch (which is a simple and itutnive apprach to detect cylinders) since cylinders and spheres are not tha tmuc different.
+
+so make this server like that and give me a complete code so tha twhen a reauewet is made it'll retun the posiion and the number of cylinders that I have. It's uses the lidar scanner to detect teh cylinders
+
+
+which is first get all clusters
+
+then filter clusters (like hte above finding apples thing)
+
+
+class TableDetectionServer : public rclcpp::Node {
+public:
+    TableDetectionServer() : Node("table_detection_server") {
+        // Create service
+        service_ = this->create_service<table_detection_pkg::srv::DetectTables>(
+            "detect_tables",
+            std::bind(&TableDetectionServer::detectTablesCallback, this,
+                     std::placeholders::_1, std::placeholders::_2));
+        
+        // Subscribe to LIDAR
+        scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10,
+            std::bind(&TableDetectionServer::scanCallback, this, std::placeholders::_1));
+        
+        // TF2 setup
+        tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+        
+
+    }
+
+private:
+    void scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+        latest_scan_ = msg;
+    }
+    
+
+};
+
+int main(int argc, char** argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<TableDetectionServer>());
+    rclcpp::shutdown();
+    return 0;
+}
+
+here is the srv file
+
+# Request: empty (no parameters needed)
+---
+# Response: array of table positions in odom frame
+geometry_msgs/Point[] table_positions
+bool success
+string message that I have DetectTables.srv
+
+
+
+so hwat I want is simple a simple way like I did in the apple detection to detect cyclinders. Just use what I did for aple detection to detect cylinders
