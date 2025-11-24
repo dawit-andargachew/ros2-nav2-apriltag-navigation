@@ -1,0 +1,6 @@
+# Request: empty (no parameters needed)
+---
+# Response: array of table positions in odom frame
+geometry_msgs/Point[] table_positions
+bool success
+string message
