@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>pipeline</name>
+  <name>group_6_assignment_1</name>
   <version>0.0.0</version>
   <description>assignment_1 navigation project for intelligent robotics</description>
   <maintainer email="candi.tharen@gmail.com">tharen_candi</maintainer>

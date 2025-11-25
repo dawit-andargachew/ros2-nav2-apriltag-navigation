@@ -14,10 +14,10 @@ Output:
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav2_msgs/action/navigate_to_pose.hpp>
-#include "pipeline/srv/detect_tables.hpp"
+#include "group_6_assignment_1/srv/detect_tables.hpp"
 
 using namespace std::chrono_literals;
-using DetectTables = pipeline::srv::DetectTables;
+using DetectTables = group_6_assignment_1::srv::DetectTables;
 
 #define SUBSCRIBER_QUEUE_SIZE 10
 #define FEEDBACK_THROTTLE_TIMER_SEC 0.5
