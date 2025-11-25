@@ -11,6 +11,9 @@ Output:
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
+#define PUBLISHER_QUEUE_SIZE 10
+#define TIMER_PERIOD_SEC 1
+
 class InitialPosePub : public rclcpp::Node
 {
 public:
@@ -18,10 +21,10 @@ public:
     : Node("initial_pose_pub")
     {
         pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
-            "initialpose", 10);
+            "initialpose", PUBLISHER_QUEUE_SIZE);
 
         timer_ = this->create_wall_timer(
-            std::chrono::seconds(1),
+            std::chrono::seconds(TIMER_PERIOD_SEC),
             std::bind(&InitialPosePub::publishInitialPose, this));
 
         RCLCPP_INFO(this->get_logger(), "InitialPosePub started");
@@ -39,7 +42,7 @@ private:
         msg.pose.pose.position.y = 0.0;
         msg.pose.pose.position.z = 0.0;
 
-        msg.pose.pose.orientation.w = 1.0;  // yaw = 0
+        msg.pose.pose.orientation.w = 1.0;
 
         // Basic covariance 'cause AMCL requires non-zero covariance
         msg.pose.covariance[0] = 0.5;
