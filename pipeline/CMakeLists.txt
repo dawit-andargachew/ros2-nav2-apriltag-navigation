@@ -69,11 +69,6 @@ ament_target_dependencies(
   nav2_msgs
   )
 
-target_link_libraries(navigation_orchestrator
-  ${cpp_typesupport_target}
-)
-
-
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} "rosidl_typesupport_cpp"
 )
@@ -82,6 +77,9 @@ target_link_libraries(table_detection_server
   ${cpp_typesupport_target}
 )
 
+target_link_libraries(navigation_orchestrator
+  ${cpp_typesupport_target}
+)
 
 #executable
 install(TARGETS

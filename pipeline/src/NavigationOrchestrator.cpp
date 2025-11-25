@@ -130,7 +130,7 @@ private:
 
     void callTableDetectionServer()
     {
-        if (!table_detector_client_->wait_for_service(SERVICE_WAIT_TIMER_SEC)) {
+        if (!table_detector_client_->wait_for_service(std::chrono::seconds(SERVICE_WAIT_TIMER_SEC))) {
             RCLCPP_ERROR(this->get_logger(),
                         "TableDetectionServer not available");
             return;
