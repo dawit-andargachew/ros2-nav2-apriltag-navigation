@@ -1,3 +1,18 @@
+/* src/TableDetectionServer.cpp
+
+It's a service for detecting the three cylinderical tables
+
+Input:
+    - It uses the robots lidar to scan its sourronding and it look for circuar edges that resemble a cylinder
+    - then cluter the points from the lidar scan and search for circular edges
+    - after filtering out circular edges, these coordinates chagned to odom refernce frame 
+
+Output
+    - it gives the respective coordinates of each cylinderical table relative to odom reference fram
+
+*/
+
+
 #include "rclcpp/rclcpp.hpp"
 #include "group_6_assignment_1/srv/detect_tables.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
@@ -11,11 +26,17 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
+
+
+// Constants need to detect cylinder around the robot
+
+#define SCAN_SUBSCRIPTION_QUEUE_SIZE 10 // Queue size for the subscription
 #define MIN_CLUSTER_SIZE 2
-#define MIN_CYLINDER_WIDTH 0.09  // HINT: must be > april_tag dimension (0.05 X 0.05 (M) -> 5cm) (The cylinders are bigger)
-#define MAX_CYLINDER_WIDTH 0.5  // Maximum cylinder diameter, half a meter )
-#define CLUSTER_PROXIMITY_THRESHOLD 0.3  // 60cm
-#define MAX_CYLINDER_DETECTION_RANGE 3.0 // 3 meters
+#define MIN_CYLINDER_WIDTH 0.05  // HINT: must be > april_tag dimension (0.05 X 0.05 (M) -> 5cm) (The cylinders are bigger), 
+#define MAX_CYLINDER_WIDTH 0.5  // Maximum cylinder diameter ( half a meter )
+#define CLUSTER_PROXIMITY_THRESHOLD 0.25  // cluster proximity  25cm
+#define MAX_CYLINDER_DETECTION_RANGE 3 // 3 meters
+
 class TableDetectionServer : public rclcpp::Node {
 public:
     TableDetectionServer() : Node("table_detection_server") {
@@ -27,12 +48,12 @@ public:
 
         // Create a subscription to the /scan topic to receive LaserScan messages
         scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-            "/scan", 10, //TODO get rid of magic number
+            "/scan", SCAN_SUBSCRIPTION_QUEUE_SIZE,
             std::bind(&TableDetectionServer::scan_callback, this, std::placeholders::_1));
 
         //create publisher to publish cylinder poses
         cylinder_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>(
-            "cylinder_poses", 10); //TODO get rid of magic number
+            "cylinder_poses", SCAN_SUBSCRIPTION_QUEUE_SIZE);
 
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -78,7 +99,8 @@ private:
         const float width_min = MIN_CYLINDER_WIDTH;              
         const float width_max = MAX_CYLINDER_WIDTH;             
 
-    // 1. Get all clusters: Group laser scan points that are close to each other into clusters
+    
+        // 1. Get all clusters: Group laser scan points that are close to each other into clusters
         for (size_t i = 0; i < ranges.size(); i++) {
             float range = ranges[i];
             if (range < latest_scan_->range_min || range > latest_scan_->range_max) {
@@ -130,17 +152,11 @@ private:
                 float x = range_median * std::cos(angle);
                 float y = range_median * std::sin(angle);
 
-                //filter range
+                //filter range that are outside the range
                 if (range_median > MAX_CYLINDER_DETECTION_RANGE) {
-                    RCLCPP_DEBUG(this->get_logger(), "Ignoring cylinder at range %.2f m (beyond max detection range).", range_median);
                     continue;
                 }
                 
-                // Log the (x, y, z) coordinates
-                RCLCPP_INFO(this->get_logger(), "Cylinder detected at range: %.2f, angle: %.2f, x: %.2f, y: %.2f", range_median, angle, x, y);
-                // Log the width of the detected cylinder
-                RCLCPP_INFO(this->get_logger(), "Cylinder width: %.2f meters", width);
-
                 // Create a Pose message for visualization in RViz
                 //this reference frame is "base_link"
                 geometry_msgs::msg::Pose cylinder_pose;
@@ -151,6 +167,8 @@ private:
                 cylinder_pose.orientation.y = 0.0;
                 cylinder_pose.orientation.z = 0.0;
                 cylinder_pose.orientation.w = 1.0;
+
+
                 // transform to "odom" using tf2; only add pose on success
                 bool transformed = false;
                 try {
@@ -185,7 +203,7 @@ private:
         // Poses were transformed to 'odom', so set header accordingly and use scan timestamp
         cylinder_poses.header.frame_id = "odom";
         cylinder_poses.header.stamp = latest_scan_->header.stamp;
-        RCLCPP_INFO(this->get_logger(), "Publishing %zu cylinder poses in frame '%s'.", cylinder_poses.poses.size(), cylinder_poses.header.frame_id.c_str());
+        
         cylinder_pose_publisher_->publish(cylinder_poses);
         return cylinder_count;
     }
