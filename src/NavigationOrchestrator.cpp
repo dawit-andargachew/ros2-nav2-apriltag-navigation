@@ -6,6 +6,12 @@ Input:
 Output:
 -
 
+26th nov 2025
+- adding lifecycle service client to the orchestrator
+- to check the state of the nav2 stack
+- so we can only send goals when nav2 is active
+
+
 */
 
 #include <memory>
@@ -15,6 +21,7 @@ Output:
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav2_msgs/action/navigate_to_pose.hpp>
 #include "group_6_assignment_1/srv/detect_tables.hpp"
+#include <lifecycle_msgs/srv/get_state.hpp>
 
 using namespace std::chrono_literals;
 using DetectTables = group_6_assignment_1::srv::DetectTables;
@@ -22,7 +29,8 @@ using DetectTables = group_6_assignment_1::srv::DetectTables;
 #define SUBSCRIBER_QUEUE_SIZE 10
 #define FEEDBACK_THROTTLE_TIMER_SEC 0.5
 #define SERVICE_WAIT_TIMER_SEC 2
-
+#define NAV_LIFECYCLE_NODE_NAME "lifecycle_manager_navigation"
+#define CHECK_READY_TIMER_SEC 1
 class NavigationOrchestrator : public rclcpp::Node
 {
 public:
@@ -30,13 +38,23 @@ public:
     using GoalHandleNav = rclcpp_action::ClientGoalHandle<NavigateToPose>;
 
     NavigationOrchestrator() : Node("navigation_orchestrator")
-    {
+    {   
+        //CLIENTS 
         // Creates navigation action client
         navigate_to_pose_client_ = rclcpp_action::create_client<NavigateToPose>(
             this, 
             "navigate_to_pose"
         );
+      
+        // Creates table detector client
+        table_detector_client_ = this->create_client<DetectTables>("detect_tables");
+        
+        // Creates lifecycle service client to monitor nav2 state
+        nav_lifecycle_client_ = this->create_client<lifecycle_msgs::srv::GetState>(
+            "/" NAV_LIFECYCLE_NODE_NAME "/get_state"
+        );
 
+        //SUBSCRIBERS
         // Subscribing to GoalDetector publisher to get the goal position
         goal_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "goal_pose",   
@@ -46,19 +64,62 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "NavigationOrchestrator is ready and listening for goal_pose.");
 
-        // Creates table detector client
-        table_detector_client_ = this->create_client<DetectTables>("detect_tables");
-    
+
+    }
+
+    //Startup coord logic
+    void waitSystemReady() {
+        RCLCPP_INFO(this->get_logger(), "Waiting for Nav2 lifecycle manager to be available...");
+        
+        
+        while (!nav_lifecycle_client_->wait_for_service(1s)) {
+            RCLCPP_WARN(this->get_logger(), "Nav2 lifecycle manager service not available, waiting...");
+        }
+        RCLCPP_INFO(this->get_logger(), "Nav2 lifecycle manager service available.");
+
+        // Polling the lifecycle state until it is ACTIVE
+        while (rclcpp::ok()) {
+            auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
+            auto future = nav_lifecycle_client_->async_send_request(request);
+
+            // Wait for the result
+            if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future, 2s)
+                == rclcpp::FutureReturnCode::SUCCESS)
+            {
+                auto response = future.get();
+                if (response->current_state.id == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+                    RCLCPP_INFO(this->get_logger(), "Nav2 is ACTIVE.");
+                    break;
+                } else {
+                    RCLCPP_INFO(this->get_logger(), "Nav2 not ACTIVE yet (state id: %d), waiting...", response->current_state.id);
+                }
+            } else {
+                RCLCPP_ERROR(this->get_logger(), "Failed to call Nav2 lifecycle service.");
+            }
+            std::this_thread::sleep_for(1s);
+        }
+        RCLCPP_INFO(this->get_logger(), "System is ready.");
+        system_ready_ = true;
     }
 
 private:
     rclcpp_action::Client<NavigateToPose>::SharedPtr navigate_to_pose_client_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
     rclcpp::Client<DetectTables>::SharedPtr table_detector_client_;
+    rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr nav_lifecycle_client_;
+    
     rclcpp::Time last_feedback_time_{0, 0, RCL_ROS_TIME};
+    bool system_ready_ = false;
 
+    
     void goalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
+        
+        if (!system_ready_) {
+            RCLCPP_WARN(this->get_logger(), "System not ready yet, ignoring goal.");
+            return;
+        }
+        
         // Collects the goal position
         RCLCPP_INFO(
             this->get_logger(),
@@ -69,11 +130,12 @@ private:
             msg->pose.position.z
         );
 
-        if (!navigate_to_pose_client_->wait_for_action_server(2s)) {
-            RCLCPP_ERROR(this->get_logger(),
-                         "NavigateToPose action server not available");
-            return;
-        }
+        // not needed since we wait for system ready at startup
+        // if (!navigate_to_pose_client_->wait_for_action_server(2s)) {
+        //     RCLCPP_ERROR(this->get_logger(),
+        //                  "NavigateToPose action server not available");
+        //     return;
+        // }
 
         auto goal_msg = NavigateToPose::Goal();
         goal_msg.pose = *msg;
@@ -161,8 +223,10 @@ private:
 };
 
 int main(int argc, char * argv[]) {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<NavigationOrchestrator>());
+    rclcpp::init(argc, argv);   
+    auto node = std::make_shared<NavigationOrchestrator>();
+    node->waitSystemReady(); //BLOCK here until system is ready
+    rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
 }
