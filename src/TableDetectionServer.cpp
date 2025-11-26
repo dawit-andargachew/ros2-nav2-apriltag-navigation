@@ -6,7 +6,16 @@
 #include <vector>
 #include <mutex>
 #include <memory>
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
+#define MIN_CLUSTER_SIZE 2
+#define MIN_CYLINDER_WIDTH 0.09  // HINT: must be > april_tag dimension (0.05 X 0.05 (M) -> 5cm) (The cylinders are bigger)
+#define MAX_CYLINDER_WIDTH 0.5  // Maximum cylinder diameter, half a meter )
+#define CLUSTER_PROXIMITY_THRESHOLD 0.3  // 60cm
+#define MAX_CYLINDER_DETECTION_RANGE 3.0 // 3 meters
 class TableDetectionServer : public rclcpp::Node {
 public:
     TableDetectionServer() : Node("table_detection_server") {
@@ -18,8 +27,15 @@ public:
 
         // Create a subscription to the /scan topic to receive LaserScan messages
         scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-            "/scan", 10,
+            "/scan", 10, //TODO get rid of magic number
             std::bind(&TableDetectionServer::scan_callback, this, std::placeholders::_1));
+
+        //create publisher to publish cylinder poses
+        cylinder_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>(
+            "cylinder_poses", 10); //TODO get rid of magic number
+
+        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
         
         RCLCPP_INFO(this->get_logger(), "Cylinder Detection Server is ready.");
     }
@@ -27,9 +43,11 @@ public:
 private:
     rclcpp::Service<group_6_assignment_1::srv::DetectTables>::SharedPtr service_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr cylinder_pose_publisher_;
     sensor_msgs::msg::LaserScan::SharedPtr latest_scan_;
     std::mutex scan_mutex_;
-
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     // Callback for the detect_tables service
     void detectTablesCallback(
         const std::shared_ptr<group_6_assignment_1::srv::DetectTables::Request> request,
@@ -47,20 +65,20 @@ private:
 
     // Scan for cylinders based on the laser scan data
     int scan_for_cylinders() {
+        // lock while we access latest_scan_
+        std::lock_guard<std::mutex> lock(scan_mutex_);
         if (!latest_scan_) {
             RCLCPP_WARN(this->get_logger(), "No laser scan data available.");
             return 0;
         }
-
-        std::lock_guard<std::mutex> lock(scan_mutex_);
         const std::vector<float>& ranges = latest_scan_->ranges;
         std::vector<std::vector<size_t>> clusters;  // To hold clusters of indices
         std::vector<size_t> current_cluster;        // A temporary cluster
-        const float cluster_threshold = 0.3;       // 60cm cluster proximity threshold
-        const float width_min = 0.20;              // Minimum cylinder diameter (20 cm)
-        const float width_max = 0.45;              // Maximum cylinder diameter (45 cm)
+        const float cluster_threshold = CLUSTER_PROXIMITY_THRESHOLD;       
+        const float width_min = MIN_CYLINDER_WIDTH;              
+        const float width_max = MAX_CYLINDER_WIDTH;             
 
-        // 1. Get all clusters: Group laser scan points that are close to each other into clusters
+    // 1. Get all clusters: Group laser scan points that are close to each other into clusters
         for (size_t i = 0; i < ranges.size(); i++) {
             float range = ranges[i];
             if (range < latest_scan_->range_min || range > latest_scan_->range_max) {
@@ -81,6 +99,10 @@ private:
                 current_cluster.push_back(i);  // Add the current point to the new cluster
             }
         }
+        // push the last cluster if non-empty
+        if (!current_cluster.empty()) {
+            clusters.push_back(current_cluster);
+        }
 
         // 2. Filter clusters based on size and width, and calculate cylinder poses
         int cylinder_count = 0;
@@ -88,7 +110,7 @@ private:
         RCLCPP_INFO(this->get_logger(), "Found %zu clusters.", clusters.size());  // Use %zu for size_t
 
         for (const auto& cluster : clusters) {
-            if (cluster.size() < 2) {
+            if (cluster.size() < MIN_CLUSTER_SIZE) {
                 continue; // Too few points to form a cylinder (cluster size should be >= 2)
             }
 
@@ -101,35 +123,70 @@ private:
 
             // 3. Filter clusters based on expected cylinder dimensions (width)
             if (width >= width_min && width <= width_max) {
-                cylinder_count++;  // Increment the count of detected cylinders
-
                 // Calculate the position of the cylinder using the median point of the cluster
-                float angle = latest_scan_->angle_min + (cluster.front() * latest_scan_->angle_increment);
-                float range_median = ranges[cluster[cluster.size() / 2]];
+                size_t median_idx = cluster[cluster.size() / 2];
+                float angle = latest_scan_->angle_min + (median_idx * latest_scan_->angle_increment);
+                float range_median = ranges[median_idx];
                 float x = range_median * std::cos(angle);
                 float y = range_median * std::sin(angle);
 
+                //filter range
+                if (range_median > MAX_CYLINDER_DETECTION_RANGE) {
+                    RCLCPP_DEBUG(this->get_logger(), "Ignoring cylinder at range %.2f m (beyond max detection range).", range_median);
+                    continue;
+                }
                 
                 // Log the (x, y, z) coordinates
                 RCLCPP_INFO(this->get_logger(), "Cylinder detected at range: %.2f, angle: %.2f, x: %.2f, y: %.2f", range_median, angle, x, y);
+                // Log the width of the detected cylinder
+                RCLCPP_INFO(this->get_logger(), "Cylinder width: %.2f meters", width);
 
                 // Create a Pose message for visualization in RViz
+                //this reference frame is "base_link"
                 geometry_msgs::msg::Pose cylinder_pose;
                 cylinder_pose.position.x = x;
                 cylinder_pose.position.y = y;
                 cylinder_pose.position.z = 0.0;
                 cylinder_pose.orientation.x = 0.0;
                 cylinder_pose.orientation.y = 0.0;
-                cylinder_pose.orientation.z = std::sin((angle + M_PI) / 2.0);
-                cylinder_pose.orientation.w = std::cos((angle + M_PI) / 2.0);
-                cylinder_poses.poses.push_back(cylinder_pose);
+                cylinder_pose.orientation.z = 0.0;
+                cylinder_pose.orientation.w = 1.0;
+                // transform to "odom" using tf2; only add pose on success
+                bool transformed = false;
+                try {
+                    if (tf_buffer_->canTransform("odom", latest_scan_->header.frame_id, tf2::TimePointZero)) {
+                        geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(
+                            "odom",  // target frame
+                            latest_scan_->header.frame_id,  // source frame
+                            tf2::TimePointZero);  // get the latest available transform
+
+                        geometry_msgs::msg::PoseStamped pose_in, pose_out;
+                        pose_in.header.frame_id = latest_scan_->header.frame_id;
+                        pose_in.header.stamp = latest_scan_->header.stamp;
+                        pose_in.pose = cylinder_pose;
+
+                        tf2::doTransform(pose_in, pose_out, transform_stamped);
+                        cylinder_pose = pose_out.pose;  // Update to transformed pose
+                        transformed = true;
+                    } else {
+                        RCLCPP_DEBUG(this->get_logger(), "Transform not available yet: %s -> odom", latest_scan_->header.frame_id.c_str());
+                    }
+                } catch (tf2::TransformException &ex) {
+                    RCLCPP_WARN(this->get_logger(), "Could not transform cylinder pose: %s", ex.what());
+                }
+
+                if (transformed) {
+                    cylinder_poses.poses.push_back(cylinder_pose);
+                    cylinder_count++;  // Increment only when pose successfully transformed and queued
+                }
             }
         }
-
         // 4. Publish the cylinder positions for visualization in RViz
-        cylinder_poses.header.frame_id = latest_scan_->header.frame_id;
-        cylinder_poses.header.stamp = this->now();
-        RCLCPP_INFO(this->get_logger(), "Published %zu cylinder poses.", cylinder_poses.poses.size());  // Use %zu for size_t
+        // Poses were transformed to 'odom', so set header accordingly and use scan timestamp
+        cylinder_poses.header.frame_id = "odom";
+        cylinder_poses.header.stamp = latest_scan_->header.stamp;
+        RCLCPP_INFO(this->get_logger(), "Publishing %zu cylinder poses in frame '%s'.", cylinder_poses.poses.size(), cylinder_poses.header.frame_id.c_str());
+        cylinder_pose_publisher_->publish(cylinder_poses);
         return cylinder_count;
     }
 
