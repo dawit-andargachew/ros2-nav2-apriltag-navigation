@@ -7,7 +7,7 @@ launch wrapper for entire pipeline
 """
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch_ros.actions import Node
 import os
@@ -18,12 +18,13 @@ def generate_launch_description():
     ir_launch_dir = os.path.join(get_package_share_directory('ir_launch'), 'launch')
     group_6_launch_dir = os.path.join(get_package_share_directory('group_6_assignment_1'), 'launch')
 
-    # 1. Launch sim/setup
-    sim_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(ir_launch_dir, 'assignment_1.launch.py')),
-        launch_arguments={'autostart': 'True'}.items()
+    # 1. Launch sim/setup in a subprocess and redirect output to logs (silenced in terminal)
+    sim_launch = ExecuteProcess(
+        cmd=['ros2', 'launch', 'ir_launch', 'assignment_1.launch.py', 'autostart:=True'],
+        output='log',       # Sends stdout/stderr to ROS 2 log files
+        emulate_tty=False   # Prevents output from appearing in terminal
     )
-
+    
     # 2. Launch apriltag detection node
     apriltag_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource(os.path.join(group_6_launch_dir, 'apriltag_wrapper.launch.yml'))
