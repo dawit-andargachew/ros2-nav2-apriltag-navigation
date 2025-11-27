@@ -36,10 +36,12 @@ def generate_launch_description():
         executable='navigation_orchestrator',
         name='navigation_orchestrator'
     )
+    # Load goal_detector parameters from package config if present
     goal_detector = Node(
         package='group_6_assignment_1',
         executable='goal_detector',
-        name='goal_detector'
+        name='goal_detector',
+        parameters=[os.path.join(get_package_share_directory('group_6_assignment_1'), 'config', 'goal_detector.yaml')]
     )
     initial_pose_pub = Node(
         package='group_6_assignment_1',
