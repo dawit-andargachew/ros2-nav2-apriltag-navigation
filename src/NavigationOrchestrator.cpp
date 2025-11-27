@@ -22,6 +22,8 @@ Output:
 #include <nav2_msgs/action/navigate_to_pose.hpp>
 #include "group_6_assignment_1/srv/detect_tables.hpp"
 #include <lifecycle_msgs/srv/get_state.hpp>
+#include <atomic>
+#include <lifecycle_msgs/msg/state.hpp>
 
 using namespace std::chrono_literals;
 using DetectTables = group_6_assignment_1::srv::DetectTables;
@@ -64,42 +66,59 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "NavigationOrchestrator is ready and listening for goal_pose.");
 
+        // start non-blocking readiness poller
+        waitSystemReady();
 
     }
 
-    //Startup coord logic
     void waitSystemReady() {
-        RCLCPP_INFO(this->get_logger(), "Waiting for Nav2 lifecycle manager to be available...");
-        
-        
-        while (!nav_lifecycle_client_->wait_for_service(1s)) {
-            RCLCPP_WARN(this->get_logger(), "Nav2 lifecycle manager service not available, waiting...");
-        }
-        RCLCPP_INFO(this->get_logger(), "Nav2 lifecycle manager service available.");
+        RCLCPP_INFO(this->get_logger(), "Starting non-blocking Nav2 readiness poller...");
 
-        // Polling the lifecycle state until it is ACTIVE
-        while (rclcpp::ok()) {
-            auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
-            auto future = nav_lifecycle_client_->async_send_request(request);
-
-            // Wait for the result
-            if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future, 2s)
-                == rclcpp::FutureReturnCode::SUCCESS)
-            {
-                auto response = future.get();
-                if (response->current_state.id == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
-                    RCLCPP_INFO(this->get_logger(), "Nav2 is ACTIVE.");
-                    break;
-                } else {
-                    RCLCPP_INFO(this->get_logger(), "Nav2 not ACTIVE yet (state id: %d), waiting...", response->current_state.id);
+        ready_timer_ = this->create_wall_timer(
+            std::chrono::seconds(CHECK_READY_TIMER_SEC),
+            [this]() {
+                // if already ready, stop timer and return
+                if (system_ready_.load()) {
+                    if (ready_timer_) {
+                        ready_timer_->cancel();
+                    }
+                    return;
                 }
-            } else {
-                RCLCPP_ERROR(this->get_logger(), "Failed to call Nav2 lifecycle service.");
+
+                // non-blocking service availability check
+                if (!nav_lifecycle_client_->service_is_ready()) {
+                    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                        "Nav2 lifecycle manager service not available, waiting...");
+                    return;
+                }
+
+                auto request = std::make_shared<lifecycle_msgs::srv::GetState::Request>();
+                // async request with lambda callback; do not block inside timer callback
+                nav_lifecycle_client_->async_send_request(
+                    request,
+                    [this](rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedFuture future) {
+                        try {
+                            auto response = future.get();
+                            if (response->current_state.id == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+                                RCLCPP_INFO(this->get_logger(), "Nav2 is ACTIVE.");
+                                system_ready_.store(true);
+                                if (ready_timer_) {
+                                    ready_timer_->cancel();
+                                }
+                            } else {
+                                // keep system_ready_ false
+                                system_ready_.store(false);
+                                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                    "Nav2 not ACTIVE yet (state id: %u), waiting...", response->current_state.id);
+                            }
+                        } catch (const std::exception & e) {
+                            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                "Failed to query Nav2 lifecycle state: %s", e.what());
+                        }
+                    }
+                );
             }
-            std::this_thread::sleep_for(1s);
-        }
-        RCLCPP_INFO(this->get_logger(), "System is ready.");
-        system_ready_ = true;
+        );
     }
 
 private:
@@ -109,17 +128,23 @@ private:
     rclcpp::Client<lifecycle_msgs::srv::GetState>::SharedPtr nav_lifecycle_client_;
     
     rclcpp::Time last_feedback_time_{0, 0, RCL_ROS_TIME};
-    bool system_ready_ = false;
+    
+    //atomic because used in timer callback
+    std::atomic_bool system_ready_{false};
+    
+    rclcpp::TimerBase::SharedPtr ready_timer_;
 
     
     void goalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
         
-        if (!system_ready_) {
-            RCLCPP_WARN(this->get_logger(), "System not ready yet, ignoring goal.");
+        if (!system_ready_.load()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                "Goal ignored: system not ready yet"
+            );
             return;
         }
-        
+
         // Collects the goal position
         RCLCPP_INFO(
             this->get_logger(),
@@ -130,29 +155,39 @@ private:
             msg->pose.position.z
         );
 
-        // not needed since we wait for system ready at startup
-        // if (!navigate_to_pose_client_->wait_for_action_server(2s)) {
-        //     RCLCPP_ERROR(this->get_logger(),
-        //                  "NavigateToPose action server not available");
-        //     return;
-        // }
-
+        if (!navigate_to_pose_client_->wait_for_action_server(1s)) {
+            RCLCPP_ERROR(this->get_logger(),
+                         "Goal cannot be sent because NavigateToPose action server not available.");
+            return;
+        }
+    
         auto goal_msg = NavigateToPose::Goal();
         goal_msg.pose = *msg;
 
-        RCLCPP_INFO(this->get_logger(), "Sending goal to Nav2");
-
         auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
 
+        // async function handle response callback
+        // Note: rclcpp_action may expect either a direct GoalHandle shared_ptr or a future depending on API;
+        // use the signature that accepts a GoalHandle shared_ptr for compatibility with this ROS 2 version.
+        send_goal_options.goal_response_callback =
+        [this](GoalHandleNav::SharedPtr handle) {
+            if (!handle) {
+                RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Goal accepted by server");
+            }
+        };
+        //bind member function as feedback and result callback
         send_goal_options.feedback_callback =
             std::bind(&NavigationOrchestrator::feedbackCallback, this,
-                      std::placeholders::_1, std::placeholders::_2);
+                    std::placeholders::_1, std::placeholders::_2);
 
         send_goal_options.result_callback =
             std::bind(&NavigationOrchestrator::resultCallback, this,
-                      std::placeholders::_1);
+                    std::placeholders::_1);
 
-        // Navigates to the goal position
+        // Sends the goal to Nav2
+        RCLCPP_INFO(this->get_logger(), "Sending goal to Nav2");
         navigate_to_pose_client_->async_send_goal(goal_msg, send_goal_options);
     }
 
@@ -208,12 +243,14 @@ private:
             {
                 try {
                     auto response = future.get();
-                    RCLCPP_INFO(this->get_logger(),
-                                "TableDetectionServer finished successfully.");
+                    if (response->success) {
+                        RCLCPP_INFO(this->get_logger(), "TableDetectionServer succeeded: %s", response->message.c_str());
+                    } else {
+                        RCLCPP_WARN(this->get_logger(), "TableDetectionServer reported failure: %s", response->message.c_str());
+                    }
                 }
                 catch (const std::exception & e) {
-                    RCLCPP_ERROR(this->get_logger(),
-                                "Service call failed: %s", e.what());
+                    RCLCPP_ERROR(this->get_logger(), "Service call failed: %s", e.what());
                 }
             }
         );
@@ -225,7 +262,6 @@ private:
 int main(int argc, char * argv[]) {
     rclcpp::init(argc, argv);   
     auto node = std::make_shared<NavigationOrchestrator>();
-    node->waitSystemReady(); //BLOCK here until system is ready
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
