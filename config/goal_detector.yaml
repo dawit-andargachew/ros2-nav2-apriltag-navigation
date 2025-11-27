@@ -1,0 +1,21 @@
+# Parameters for the goal_detector node
+# Usage:
+#  - ros2 run group_6_assignment_1 goal_detector --ros-args --params-file config/goal_detector.yaml
+#  - or load the file from a launch file using launch_ros.actions.Node(params=[path_to_file])
+
+goal_detector:
+  ros__parameters:
+    # TF & tags
+    output_frame: "map"
+    tag1_frame: "tag36h11:1"
+    tag2_frame: "tag36h11:10"
+
+    # Orientation / offsets
+    # yaw_offset_rad is added to the edge yaw; default = pi/2 to face perpendicular to the tag edge
+    yaw_offset_rad: -1.5707963267948966
+    # distance_offset: move the goal this far away from the midpoint along the perpendicular (meters)
+    distance_offset: 0.0
+
+    # Internal timing (optional overrides)
+    # TIMER_PERIOD_MS: 1000  # if you want to override the node's hardcoded timer period
+    # FIND_TF_TIMEOUT_MS: 1000
