@@ -18,7 +18,7 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
-
+find_package(lifecycle_msgs REQUIRED)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -67,6 +67,7 @@ ament_target_dependencies(
   rclcpp_action
   geometry_msgs
   nav2_msgs
+  lifecycle_msgs
   )
 
 rosidl_get_typesupport_target(cpp_typesupport_target
