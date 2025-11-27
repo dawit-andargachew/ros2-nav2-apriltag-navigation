@@ -14,8 +14,4 @@ goal_detector:
     # yaw_offset_rad is added to the edge yaw; default = pi/2 to face perpendicular to the tag edge
     yaw_offset_rad: -1.5707963267948966
     # distance_offset: move the goal this far away from the midpoint along the perpendicular (meters)
-    distance_offset: 0.0
-
-    # Internal timing (optional overrides)
-    # TIMER_PERIOD_MS: 1000  # if you want to override the node's hardcoded timer period
-    # FIND_TF_TIMEOUT_MS: 1000
+    distance_offset: 0.10
