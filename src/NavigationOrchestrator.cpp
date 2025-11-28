@@ -180,7 +180,7 @@ private:
                 //go backt to pre-navigating to try again
                 setState(OrchState::PRE_NAVIGATING);
                 break;
-            case rclcpp_action::ResultCode::CANCELED:c
+            case rclcpp_action::ResultCode::CANCELED:
                 RCLCPP_WARN(this->get_logger(), "Navigation anceled");
                 // go back to pre-navigating to try again
                 setState(OrchState::PRE_NAVIGATING);
