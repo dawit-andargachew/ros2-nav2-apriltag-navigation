@@ -125,16 +125,7 @@ private:
             goal_pose.pose.orientation = tf2::toMsg(q);
     
             goal_pub_->publish(goal_pose);
-            
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(), *this->get_clock(), THROTTLE_LOG_MS,
-                "Goal at: (%.2f, %.2f, %.2f) in %s",
-                goal_pose.pose.position.x,
-                goal_pose.pose.position.y,
-                goal_pose.pose.position.z,
-                output_frame_.c_str()
-            );
-
+    
         } catch (const tf2::TransformException &ex) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), THROTTLE_LOG_MS,
                 "Could not get tag transforms: %s", ex.what());
