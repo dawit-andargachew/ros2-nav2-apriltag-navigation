@@ -1,0 +1,12 @@
+# Parameters for the table_detection_server node
+# Usage:
+#  - ros2 run group_6_assignment_1 table_detection_server --ros-args --params-file config/table_detection_server.yaml
+#  - or load the file from a launch file using launch_ros.actions.Node(params=[path_to_file])
+
+table_detection_server:
+  ros__parameters:
+    min_cluster_size: 2
+    min_cylinder_width: 0.05
+    max_cylinder_width: 0.5
+    cluster_proximity_threshold: 0.25
+    max_cylinder_detection_range: 3.0
