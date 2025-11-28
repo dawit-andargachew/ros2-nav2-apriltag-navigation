@@ -68,7 +68,12 @@ private:
 
     void amclCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr)
     {
-        RCLCPP_INFO(this->get_logger(), "AMCL pose received — stopping initial pose publishing");
+        // returns immediately so it doesn't print the next message every time but just one
+        if (initialized_) {
+            return;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "AMCL pose received - stopping initial pose publishing");
         initialized_ = true;
         timer_->cancel();
     }
