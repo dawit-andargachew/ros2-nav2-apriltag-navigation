@@ -25,10 +25,12 @@ def generate_launch_description():
         emulate_tty=False   # Prevents output from appearing in terminal
     )
     
-    # 2. Launch apriltag detection node
-    apriltag_launch = IncludeLaunchDescription(
-        AnyLaunchDescriptionSource(os.path.join(group_6_launch_dir, 'apriltag_wrapper.launch.yml'))
-    )
+    # 2. Launch apriltag detection node (silenced in terminal)
+    apriltag_launch = ExecuteProcess(
+    cmd=['ros2', 'launch','group_6_assignment_1', 'apriltag_wrapper.launch.yml'],
+    output='log',
+    emulate_tty=False
+)
 
     # 3. Launch other nodes
     navigation_orchestrator = Node(
