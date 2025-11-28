@@ -38,6 +38,7 @@ def generate_launch_description():
         executable='navigation_orchestrator',
         name='navigation_orchestrator'
     )
+
     # Load goal_detector parameters from package config if present
     goal_detector = Node(
         package='group_6_assignment_1',
@@ -45,11 +46,21 @@ def generate_launch_description():
         name='goal_detector',
         parameters=[os.path.join(get_package_share_directory('group_6_assignment_1'), 'config', 'goal_detector.yaml')]
     )
+
+    # Load table_detection_server parameters from package config if present
+    table_detection_server = Node(
+        package='group_6_assignment_1',
+        executable='table_detection_server',
+        name='table_detection_server',
+        parameters=[os.path.join(get_package_share_directory('group_6_assignment_1'), 'config', 'table_detection_server.yaml')]
+    )
+
     initial_pose_pub = Node(
         package='group_6_assignment_1',
         executable='initial_pose_pub',
         name='initial_pose_pub'
     )
+    
     table_detection_server = Node(
         package='group_6_assignment_1',
         executable='table_detection_server',
