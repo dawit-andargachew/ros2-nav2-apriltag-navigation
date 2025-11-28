@@ -1,5 +1,5 @@
 /* 
-pipeline/src/NavigationOrchestrator.cpp
+Node: navigation_orchestrator
 
 Input: 
 -

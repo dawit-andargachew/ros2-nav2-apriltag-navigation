@@ -1,4 +1,5 @@
-/* src/TableDetectionServer.cpp
+/*
+Node: table_detection_server
 
 This service detects cylindrical tables in the robot's environment by processing
 laser scan data from the robot's lidar. It clusters points, evaluates cylindrical
