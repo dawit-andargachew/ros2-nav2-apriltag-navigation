@@ -1,5 +1,5 @@
 /* 
-pipeline/src/InitialPosePub.cpp
+Node: initial_pose_pub
 
 Input: 
 -
