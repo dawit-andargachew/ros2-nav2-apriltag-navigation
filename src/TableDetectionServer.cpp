@@ -19,20 +19,21 @@ PoseArray of detected cylinders in the odom reference frame.
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
-// Constants for detecting cylinders
-#define SCAN_SUBSCRIPTION_QUEUE_SIZE 10     // Queue size for laser scan subscription
-#define MIN_CLUSTER_SIZE 2                  // Minimum number of points for a valid cluster
-#define MIN_CYLINDER_WIDTH 0.05             // Minimum cylinder width (in meters), must be > april_tag dimension (0.05 X 0.05 -> 5cm), cylinders are bigger
-#define MAX_CYLINDER_WIDTH 0.5              // Maximum cylinder width (in meters)
-#define CLUSTER_PROXIMITY_THRESHOLD 0.25    // Threshold for proximity to consider points in the same cluster (in meters)
-#define MAX_CYLINDER_DETECTION_RANGE 3      // Maximum range for cylinder detection (in meters)
 
+#define SCAN_SUBSCRIPTION_QUEUE_SIZE 10     // Queue size for laser scan subscription
 
 class TableDetectionServer : public rclcpp::Node {
 public:
     TableDetectionServer()
         : Node("table_detection_server") {
 
+        // Load detection parameters from YAML file
+        MIN_CLUSTER_SIZE = this->declare_parameter< int>("min_cluster_size", 2);
+        MIN_CYLINDER_WIDTH = this->declare_parameter<double>("min_cylinder_width", 0.05);
+        MAX_CYLINDER_WIDTH = this->declare_parameter<double>("max_cylinder_width", 0.5);
+        CLUSTER_PROXIMITY_THRESHOLD = this->declare_parameter<double>("cluster_proximity_threshold", 0.25);
+        MAX_CYLINDER_DETECTION_RANGE = this->declare_parameter<double>("max_cylinder_detection_range", 3.0);
+        
         // Create detection service
         service_ = this->create_service<group_6_assignment_1::srv::DetectTables>(
             "detect_tables",
@@ -57,6 +58,14 @@ public:
     }
 
 private:
+
+    // Detection parameters (loaded from YAML configuration)
+    long unsigned int MIN_CLUSTER_SIZE;      // Minimum number of points for a valid cluster
+    double MIN_CYLINDER_WIDTH;               // Minimum cylinder width (in meters)
+    double MAX_CYLINDER_WIDTH;               // Maximum cylinder width (in meters)
+    double CLUSTER_PROXIMITY_THRESHOLD;      // Threshold for proximity to consider points in the same cluster (in meters)
+    double MAX_CYLINDER_DETECTION_RANGE;     // Maximum range for cylinder detection (in meters)
+
     rclcpp::Service<group_6_assignment_1::srv::DetectTables>::SharedPtr service_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr cylinder_pose_publisher_;

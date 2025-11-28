@@ -29,6 +29,14 @@ def generate_launch_description():
         AnyLaunchDescriptionSource(os.path.join(group_6_launch_dir, 'apriltag_wrapper.launch.yml'))
     )
 
+    # Load table_detection_server parameters from package config if present
+    table_detection_server = Node(
+        package='group_6_assignment_1',
+        executable='table_detection_server',
+        name='table_detection_server',
+        parameters=[os.path.join(get_package_share_directory('group_6_assignment_1'), 'config', 'table_detection_server.yaml')]
+    )
+
     # 3. Launch other nodes
     navigation_orchestrator = Node(
         package='group_6_assignment_1',
