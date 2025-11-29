@@ -1,23 +1,23 @@
-/*
+/**
  * Node: goal_detector
  *
  * Purpose:
- *   - Look up two AprilTag frames in the TF tree.
- *   - Compute a goal pose between them in the <output_frame> frame.
- *   - Orient the robot perpendicular to the line joining the tags.
+ *   - Computes a goal pose at the midpoint between the tags in the specified output frame.
+ *   - Orients the robot perpendicular to the line connecting the two tags, with optional yaw and distance offsets.
  *
  * Inputs:
  *   - TF frames: <output_frame> -> <tag1_frame>, <tag2_frame>
+ *   - Robot uses these to determine the target goal pose dynamically.
  *
  * Parameters:
- *   - output_frame (string, default: "map")
+ *   - output_frame (string, default: "map"): frame in which goal is published
  *   - tag1_frame (string, default: "tag36h11:1")
  *   - tag2_frame (string, default: "tag36h11:10")
- *   - yaw_offset_rad (double, default: -pi/2)
- *   - distance_offset (double, default: 0.0)
+ *   - yaw_offset_rad (double, default: -pi/2): offset to orient robot perpendicular to the tags
+ *   - distance_offset (double, default: 0.0): distance away from the midpoint along perpendicular
  *
  * Outputs:
- *   - Topic: /goal_pose (geometry_msgs/PoseStamped, frame: output_frame)
+ *   - /goal_pose (geometry_msgs/PoseStamped, frame: output_frame): goal pose published for navigation
  */
 
 #include <rclcpp/rclcpp.hpp>

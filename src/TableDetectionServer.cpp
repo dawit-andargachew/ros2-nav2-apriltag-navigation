@@ -1,11 +1,26 @@
-/*
-Node: table_detection_server
+/**
+ * Node: table_detection_server
+ *
+ * Purpose:
+ *   - Detects cylindrical tables in the robot's environment using lidar scan data.
+ *   - Clusters laser scan points, filters clusters by geometric constraints, and identifies cylinders.
+ *   - Publishes the poses of detected cylinders in the "odom" reference frame.
+ *
+ * Inputs:
+ *   - /scan (sensor_msgs::msg::LaserScan): continuous laser scan data from the robot's lidar.
+ *   - Service request: triggers detection of tables from the latest scan.
+ *
+ * Parameters:
+ *   - min_cluster_size: minimum number of points for a valid cluster
+ *   - min_cylinder_width / max_cylinder_width: constraints on cylinder size
+ *   - cluster_proximity_threshold: max distance between points in a cluster
+ *   - max_cylinder_detection_range: ignore objects beyond this range
+ *
+ * Outputs:
+ *   - Service response: success flag and message
+ *   - /cylinder_poses (geometry_msgs::msg::PoseArray): poses of detected cylindrical tables
+ */
 
-This service detects cylindrical tables in the robot's environment by processing
-laser scan data from the robot's lidar. It clusters points, evaluates cylindrical
-shape characteristics, filters based on geometric constraints, and outputs the
-PoseArray of detected cylinders in the odom reference frame.
-*/
 
 #include "rclcpp/rclcpp.hpp"
 #include "group_6_assignment_1/srv/detect_tables.hpp"
