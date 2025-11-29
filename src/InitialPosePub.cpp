@@ -1,10 +1,17 @@
-/* 
-Node: initial_pose_pub
-
-- Publishes initial pose of the robot for the navigation stack.
-- Subscribes to check when AMCL accepts the intial pose, so it doesn't keep publishing it after
-
-*/
+/**
+ * Node: initial_pose_pub
+ *
+ * Purpose:
+ *   - Publishes an initial pose for the robot. The Initial Pose is configurable in config/InitialPose.yaml. 
+ *   - The default is at the origin (0,0,0) in the "map" frame.
+ *   - Keeps republishing until AMCL acknowledges the pose, ensuring the localization starts correctly.
+ *
+ * Inputs:
+ *   - "amcl_pose" (geometry_msgs::msg::PoseWithCovarianceStamped): feedback from AMCL to confirm pose acceptance.
+ *
+ * Outputs:
+ *   - "initialpose" (geometry_msgs::msg::PoseWithCovarianceStamped): initial pose sent to AMCL for localization.
+ */
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
