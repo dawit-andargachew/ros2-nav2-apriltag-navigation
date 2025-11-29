@@ -34,7 +34,7 @@ public:
         this->declare_parameter<double>("cov_xx", 0.5);
         this->declare_parameter<double>("cov_yy", 0.5);
         this->declare_parameter<double>("cov_aa", 0.1);
-        load_parameters();
+        loadParameters();
 
         // Publisher for the initial pose
         pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
@@ -55,7 +55,7 @@ public:
     }
 
 private:
-    void load_parameters()
+    void loadParameters()
     {
         x_ = this->get_parameter("x").as_double();
         y_ = this->get_parameter("y").as_double();
