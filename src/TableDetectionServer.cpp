@@ -58,7 +58,7 @@ public:
         // Subscribe to /scan for continuous laser data
         scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", SCAN_SUBSCRIPTION_QUEUE_SIZE,
-            std::bind(&TableDetectionServer::scan_callback, this, std::placeholders::_1));
+            std::bind(&TableDetectionServer::scanCallback, this, std::placeholders::_1));
 
         // Publisher for detected cylinder poses (odom frame)
         cylinder_pose_publisher_ =
@@ -261,7 +261,7 @@ private:
     }
 
     // Stores incoming laser scans
-    void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    void scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
         std::lock_guard<std::mutex> lock(scan_mutex_);
         latest_scan_ = msg;
     }
