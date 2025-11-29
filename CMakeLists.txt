@@ -7,9 +7,6 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -19,6 +16,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -39,8 +37,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(table_detection_server src/TableDetectionServer.cpp)
-ament_target_dependencies(table_detection_server
-  rclcpp sensor_msgs geometry_msgs tf2_ros tf2_geometry_msgs
+ament_target_dependencies(
+  table_detection_server
+  rclcpp 
+  sensor_msgs 
+  geometry_msgs 
+  tf2_ros 
+  tf2_geometry_msgs
 )
 
 add_executable(goal_detector src/GoalDetector.cpp)

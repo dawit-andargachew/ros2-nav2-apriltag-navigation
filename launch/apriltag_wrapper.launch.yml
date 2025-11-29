@@ -5,6 +5,7 @@ launch:
     exec: component_container
     name: apriltag_container
     namespace: ""
+    output: "log"
     composable_node:
     #removed realsense node because we are using sim
     - pkg: apriltag_ros
