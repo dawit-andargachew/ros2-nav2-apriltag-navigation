@@ -33,8 +33,8 @@ namespace
 {
 constexpr int PUBLISHER_QUEUE_SIZE = 10;
 constexpr int TIMER_PERIOD_MS      = 1000;
-constexpr int THROTTLE_LOG_MS      = 1000;
-constexpr int FIND_TF_TIMEOUT_MS   = 1000;
+constexpr int THROTTLE_LOG_MS      = 2000;
+constexpr int FIND_TF_TIMEOUT_MS   = 2000;
 }
 class GoalDetector : public rclcpp::Node {
 public:
@@ -71,12 +71,13 @@ private:
     void computeGoalCallback() {
         try {
             //check both tags exist and check transform lookup
+     
             if (!tf_buffer_->canTransform(output_frame_, tag1_frame_, tf2::TimePointZero,
                                           std::chrono::milliseconds(FIND_TF_TIMEOUT_MS)) ||
                 !tf_buffer_->canTransform(output_frame_, tag2_frame_, tf2::TimePointZero,
                                           std::chrono::milliseconds(FIND_TF_TIMEOUT_MS))) {
-                RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), THROTTLE_LOG_MS,
-                    "One or both tag transforms not available yet");
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), THROTTLE_LOG_MS,
+                    "Waiting for April Tag Transformations to be available.");
                 return;
             }
 
@@ -129,6 +130,8 @@ private:
         } catch (const tf2::TransformException &ex) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), THROTTLE_LOG_MS,
                 "Could not get tag transforms: %s", ex.what());
+        } catch (const std::exception &ex) {
+            RCLCPP_ERROR(this->get_logger(), "Unexpected error in goal computation: %s", ex.what());
         }
     }
 };

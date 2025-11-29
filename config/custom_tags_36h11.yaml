@@ -17,10 +17,7 @@
 
 
         pose_estimation_method: "pnp"   # method for estimating the tag pose
-
-        #optional list of tags
         tag:
-            ids: [0,10]            # tag ID
+            ids: [1,10]            # Use the IDs present in your environment
             frames: ["tag36h11:1", "tag36h11:10"]
-            # frames: [external_camera_link, external_camera_link]  # optional frame name
-            sizes: [0.05, 0.05]   # optional tag-specific edge size
+            sizes: [0.05, 0.05]   # Ensure sizes match the actual tag sizes in meters
