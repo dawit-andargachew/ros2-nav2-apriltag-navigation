@@ -58,7 +58,8 @@ def generate_launch_description():
     initial_pose_pub = Node(
         package='group_6_assignment_1',
         executable='initial_pose_pub',
-        name='initial_pose_pub'
+        name='initial_pose_pub',
+        parameters=[os.path.join(get_package_share_directory('group_6_assignment_1'), 'config', 'initial_pose_pub.yaml')]
     )
     
     table_detection_server = Node(

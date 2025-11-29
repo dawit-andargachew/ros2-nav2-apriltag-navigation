@@ -2,9 +2,10 @@
  * Node: table_detection_server
  *
  * Purpose:
- *   - Detects cylindrical tables in the robot's environment using lidar scan data.
- *   - Clusters laser scan points, filters clusters by geometric constraints, and identifies cylinders.
- *   - Publishes the poses of detected cylinders in the "odom" reference frame.
+ *  - Orchestrates robot navigation using Nav2 and table detection service.
+ *  - Implements a simple state machine: waits for goal, sends navigation action, handles feedback/result, and triggers table detection.
+ *  - Subscribes to goal poses, sends goals to Nav2, and calls table detection after navigation.
+ *  - Handles retries and state transitions robustly.
  *
  * Inputs:
  *   - /scan (sensor_msgs::msg::LaserScan): continuous laser scan data from the robot's lidar.

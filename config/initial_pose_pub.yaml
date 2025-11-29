@@ -1,0 +1,22 @@
+# Parameters for the initial_pose_pub node
+# Usage:
+#  - ros2 run group_6_assignment_1 initial_pose_pub --ros-args --params-file config/initial_pose_pub.yaml
+#  - or load the file from a launch file using launch_ros.actions.Node(params=[path_to_file])
+
+initial_pose_pub:
+  ros__parameters:
+    # Robot position
+    x: 0.0
+    y: 0.0
+    z: 0.0
+
+    # Orientation quaternion
+    qx: 0.0
+    qy: 0.0
+    qz: 0.0
+    qw: 1.0
+
+    # Covariance values
+    cov_xx: 0.5
+    cov_yy: 0.5
+    cov_aa: 0.1
