@@ -43,7 +43,7 @@ public:
       
         // Subscribing to GoalDetector publisher to get the goal position
         goal_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-            "goal_pose",   
+            "g_pos",   
             SUBSCRIBER_QUEUE_SIZE,
             std::bind(&NavigationOrchestrator::goalCallback, this, std::placeholders::_1)
         );

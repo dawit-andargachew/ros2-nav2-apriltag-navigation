@@ -51,7 +51,7 @@ public:
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-        goal_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("goal_pose", PUBLISHER_QUEUE_SIZE);
+        goal_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("g_pos", PUBLISHER_QUEUE_SIZE);
         
         timer_ = this->create_wall_timer(
             std::chrono::milliseconds(TIMER_PERIOD_MS),
