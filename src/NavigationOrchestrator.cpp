@@ -91,8 +91,8 @@ private:
             case OrchState::PRE_NAVIGATING:
                 //
                 if (!navigate_to_pose_client_->wait_for_action_server(1s)) {
-                    RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                                "Goal cannot be sent because NavigateToPose action server not available.");
+                    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                "Waiting for NavigateToPose action server to be available.");
                         return;
                 } else if (goal_pose_received_) {
                     // we can send and we have a goal.
@@ -143,7 +143,7 @@ private:
     void goalResponseCallback(GoalHandleNav::SharedPtr handle)
     {
         if (!handle) {
-            RCLCPP_ERROR(this->get_logger(), "Goal was rejected by Nav2 action server.");
+            RCLCPP_INFO(this->get_logger(), "Goal was rejected by Nav2 action server. Retrying...");
         } else {
             RCLCPP_INFO(this->get_logger(), "Goal accepted by Nav2 action server.");
             setState(OrchState::NAVIGATING);
@@ -198,7 +198,7 @@ private:
                 setState(OrchState::PRE_NAVIGATING);
                 break;
             case rclcpp_action::ResultCode::CANCELED:
-                RCLCPP_WARN(this->get_logger(), "Navigation anceled");
+                RCLCPP_WARN(this->get_logger(), "Navigation canceled");
                 // go back to pre-navigating to try again
                 setState(OrchState::PRE_NAVIGATING);
                 break;
