@@ -1,5 +1,5 @@
 /*
-NavigationOrchestrator Node
+Node: navigation_orchestrator
 
 - Orchestrates robot navigation using Nav2 and table detection service.
 - Implements a simple state machine: waits for goal, sends navigation action, handles feedback/result, and triggers table detection.

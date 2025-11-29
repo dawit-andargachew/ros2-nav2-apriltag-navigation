@@ -1,10 +1,8 @@
 /* 
 Node: initial_pose_pub
 
-Input: 
--
-Output:
--
+- Publishes initial pose of the robot for the navigation stack.
+- Subscribes to check when AMCL accepts the intial pose, so it doesn't keep publishing it after
 
 */
 
@@ -21,6 +19,16 @@ public:
     InitialPosePub()
     : Node("initial_pose_pub")
     {
+        // Parameters loading from config yaml file
+        this->declare_parameter<double>("x", 0.0);
+        this->declare_parameter<double>("y", 0.0);
+        this->declare_parameter<double>("z", 0.0);
+        this->declare_parameter<double>("qw", 1.0);
+        this->declare_parameter<double>("cov_xx", 0.5);
+        this->declare_parameter<double>("cov_yy", 0.5);
+        this->declare_parameter<double>("cov_aa", 0.1);
+        load_parameters();
+
         // Publisher for the initial pose
         pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
             "initialpose", QUEUE_SIZE);
@@ -40,6 +48,19 @@ public:
     }
 
 private:
+    void load_parameters()
+    {
+        x_ = this->get_parameter("x").as_double();
+        y_ = this->get_parameter("y").as_double();
+        z_ = this->get_parameter("z").as_double();
+
+        qw_ = this->get_parameter("qw").as_double();
+
+        cov_xx_ = this->get_parameter("cov_xx").as_double();
+        cov_yy_ = this->get_parameter("cov_yy").as_double();
+        cov_aa_ = this->get_parameter("cov_aa").as_double();
+    }
+
     // Keeps publishing initial pose until AMCL responds
     void publishInitialPose()
     {
@@ -50,20 +71,20 @@ private:
         msg.header.stamp = now();
         msg.header.frame_id = "map";
 
-        msg.pose.pose.position.x = 0.0;
-        msg.pose.pose.position.y = 0.0;
-        msg.pose.pose.position.z = 0.0;
+        msg.pose.pose.position.x = x_;
+        msg.pose.pose.position.y = y_;
+        msg.pose.pose.position.z = z_;
 
-        msg.pose.pose.orientation.w = 1.0;
+        msg.pose.pose.orientation.w = qw_;
 
         // Basic covariance 'cause AMCL requires non-zero covariance
-        msg.pose.covariance[0] = 0.5;
-        msg.pose.covariance[7] = 0.5;
-        msg.pose.covariance[35] = 0.1;
+        msg.pose.covariance[0] = cov_xx_;
+        msg.pose.covariance[7] = cov_yy_;
+        msg.pose.covariance[35] = cov_aa_;
 
         pub_->publish(msg);
 
-        RCLCPP_INFO(this->get_logger(), "Published initial pose (0,0,0)");
+        RCLCPP_INFO(this->get_logger(), "Published initial pose (%.1f, %.1f, %.1f)", x_, y_, z_);
     }
 
     void amclCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr)
@@ -82,6 +103,9 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr amcl_sub_;
     rclcpp::TimerBase::SharedPtr timer_;
     bool initialized_ = false; 
+    double x_, y_, z_;
+    double qw_;
+    double cov_xx_, cov_yy_, cov_aa_;
 };
 
 int main(int argc, char **argv)
